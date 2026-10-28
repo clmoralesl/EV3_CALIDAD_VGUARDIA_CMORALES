@@ -1,0 +1,8 @@
+BACKEND/node_modules
+FRONTEND/node_modules
+node_modules/
+
+# Variables de entorno (usar los .env.example como plantilla)
+.env
+**/.env
+!**/.env.example
