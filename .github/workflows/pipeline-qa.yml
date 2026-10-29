@@ -65,7 +65,7 @@ jobs:
 
       - name: Guardar reportes ESLint
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: reportes-eslint
           path: |
@@ -75,7 +75,7 @@ jobs:
       # Se omite si aún no existe el secreto SONAR_TOKEN en el repositorio
       - name: Análisis SonarCloud
         if: ${{ !cancelled() && env.SONAR_TOKEN != '' }}
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_HOST_URL: https://sonarcloud.io
 
