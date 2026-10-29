@@ -9,3 +9,5 @@ node_modules/
 
 # Reportes generados por el pipeline
 eslint-report.json
+snyk-report.json
+snyk.sarif

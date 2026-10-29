@@ -1,7 +1,7 @@
 # Pipeline CI/CD de CuidartePlus
 # Se ejecuta en cada push a la rama qa (o manualmente desde la pestaña Actions).
 # Etapas: 1) SAST  2) SCA (Snyk)  3) Pruebas funcionales  4) DAST (ZAP)  5) Deploy simulado
-# Por ahora solo está implementada la etapa 1.
+# Por ahora están implementadas las etapas 1 y 2.
 
 name: Pipeline QA
 
@@ -86,5 +86,98 @@ jobs:
           echo "ESLint FRONTEND: ${{ steps.eslint_frontend.outcome }}"
           if [ "${{ steps.eslint_backend.outcome }}" = "failure" ] || [ "${{ steps.eslint_frontend.outcome }}" = "failure" ]; then
             echo "::error::ESLint encontró errores. Revisa el log o el artefacto reportes-eslint."
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Etapa 2: Verificación de vulnerabilidades en dependencias (SCA) con Snyk
+  # ---------------------------------------------------------------------------
+  sca:
+    name: 2. Vulnerabilidades en dependencias (Snyk)
+    needs: sast
+    if: ${{ !cancelled() }} # corre aunque la etapa 1 falle, para reportar todas las etapas
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # para publicar resultados en la pestaña Security
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v5
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Verificar token de Snyk
+        run: |
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "::error::Falta el secreto SNYK_TOKEN en Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Instalar Snyk CLI
+        run: npm install -g snyk@1
+
+      # Snyk lee package.json y package-lock.json y compara cada dependencia
+      # (directa y transitiva) con su base de datos de vulnerabilidades.
+      # --severity-threshold=high: solo vulnerabilidades altas o críticas hacen fallar.
+      - name: Snyk BACKEND
+        id: snyk_backend
+        working-directory: BACKEND
+        continue-on-error: true
+        run: >
+          snyk test
+          --severity-threshold=high
+          --json-file-output=snyk-report.json
+          --sarif-file-output=snyk.sarif
+
+      - name: Snyk FRONTEND
+        id: snyk_frontend
+        working-directory: FRONTEND
+        continue-on-error: true
+        run: >
+          snyk test
+          --severity-threshold=high
+          --json-file-output=snyk-report.json
+          --sarif-file-output=snyk.sarif
+
+      - name: Guardar reportes Snyk
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-snyk
+          if-no-files-found: ignore
+          path: |
+            BACKEND/snyk-report.json
+            FRONTEND/snyk-report.json
+
+      # Publica los hallazgos en la pestaña Security > Code scanning del repositorio
+      - name: Publicar resultados BACKEND en GitHub Security
+        if: ${{ !cancelled() && hashFiles('BACKEND/snyk.sarif') != '' }}
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: BACKEND/snyk.sarif
+          category: snyk-backend
+
+      - name: Publicar resultados FRONTEND en GitHub Security
+        if: ${{ !cancelled() && hashFiles('FRONTEND/snyk.sarif') != '' }}
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: FRONTEND/snyk.sarif
+          category: snyk-frontend
+
+      - name: Resultado de la etapa SCA
+        if: ${{ !cancelled() }}
+        run: |
+          echo "Snyk BACKEND:  ${{ steps.snyk_backend.outcome }}"
+          echo "Snyk FRONTEND: ${{ steps.snyk_frontend.outcome }}"
+          if [ "${{ steps.snyk_backend.outcome }}" = "failure" ] || [ "${{ steps.snyk_frontend.outcome }}" = "failure" ]; then
+            echo "::error::Snyk encontró vulnerabilidades altas o críticas. Revisa el log o el artefacto reportes-snyk."
             exit 1
           fi
