@@ -1,0 +1,90 @@
+# Pipeline CI/CD de CuidartePlus
+# Se ejecuta en cada push a la rama qa (o manualmente desde la pestaña Actions).
+# Etapas: 1) SAST  2) SCA (Snyk)  3) Pruebas funcionales  4) DAST (ZAP)  5) Deploy simulado
+# Por ahora solo está implementada la etapa 1.
+
+name: Pipeline QA
+
+on:
+  push:
+    branches: [qa]
+  workflow_dispatch:
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Etapa 1: Verificación estática (SAST) con ESLint + SonarCloud
+  # ---------------------------------------------------------------------------
+  sast:
+    name: 1. Verificación estática (ESLint + SonarCloud)
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # SonarCloud necesita el historial completo para detectar código nuevo
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            BACKEND/package-lock.json
+            FRONTEND/package-lock.json
+
+      - name: Instalar dependencias BACKEND
+        working-directory: BACKEND
+        run: npm ci
+
+      - name: Instalar dependencias FRONTEND
+        working-directory: FRONTEND
+        run: npm ci
+
+      # Cada análisis genera un reporte JSON (para SonarCloud y como evidencia)
+      # y luego se ejecuta de nuevo en formato legible para el log.
+      # continue-on-error permite que el job siga y se analicen ambos proyectos
+      # aunque el primero tenga errores; el resultado real se evalúa al final.
+      - name: ESLint BACKEND
+        id: eslint_backend
+        working-directory: BACKEND
+        continue-on-error: true
+        run: |
+          npx eslint . --format json --output-file eslint-report.json || true
+          npx eslint .
+
+      - name: ESLint FRONTEND
+        id: eslint_frontend
+        working-directory: FRONTEND
+        continue-on-error: true
+        run: |
+          npx eslint . --format json --output-file eslint-report.json || true
+          npx eslint .
+
+      - name: Guardar reportes ESLint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-eslint
+          path: |
+            BACKEND/eslint-report.json
+            FRONTEND/eslint-report.json
+
+      # Se omite si aún no existe el secreto SONAR_TOKEN en el repositorio
+      - name: Análisis SonarCloud
+        if: ${{ !cancelled() && env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_HOST_URL: https://sonarcloud.io
+
+      - name: Resultado de la etapa SAST
+        if: ${{ !cancelled() }}
+        run: |
+          echo "ESLint BACKEND:  ${{ steps.eslint_backend.outcome }}"
+          echo "ESLint FRONTEND: ${{ steps.eslint_frontend.outcome }}"
+          if [ "${{ steps.eslint_backend.outcome }}" = "failure" ] || [ "${{ steps.eslint_frontend.outcome }}" = "failure" ]; then
+            echo "::error::ESLint encontró errores. Revisa el log o el artefacto reportes-eslint."
+            exit 1
+          fi

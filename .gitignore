@@ -6,3 +6,6 @@ node_modules/
 .env
 **/.env
 !**/.env.example
+
+# Reportes generados por el pipeline
+eslint-report.json
