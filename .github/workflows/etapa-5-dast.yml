@@ -1,0 +1,97 @@
+# Etapa 5: pruebas dinámicas de seguridad (DAST) con OWASP ZAP (issue #6).
+# Reutilizable: el orquestador (#9) la llamará con "uses: ./.github/workflows/etapa-5-dast.yml".
+# Mientras tanto se prueba sola en cada PR hacia qa que toque la app o esta etapa.
+#
+# - Baseline (pasivo) sobre el frontend: http://localhost:3333
+# - API scan (activo) sobre la API usando su contrato: http://localhost:4444/openapi.json
+# Las reglas están en .zap/rules.tsv. Primera versión: NO bloquea (fail_action: false).
+
+name: "Etapa 5 - DAST (OWASP ZAP)"
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches: [qa]
+    paths:
+      - FRONTEND/**
+      - BACKEND/**
+      - docker-compose*.yml
+      - .zap/**
+      - .github/actions/entorno-ci/**
+      - .github/workflows/etapa-5-dast.yml
+
+permissions:
+  contents: read
+
+jobs:
+  dast:
+    name: 5. DAST (OWASP ZAP)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v5
+
+      - name: Levantar entorno (BD + API + frontend)
+        id: entorno
+        uses: ./.github/actions/entorno-ci
+
+      # Los contenedores de ZAP corren con --network host, así que "localhost" es el runner.
+      - name: ZAP baseline (frontend)
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: ${{ steps.entorno.outputs.web_url }}
+          rules_file_name: .zap/rules.tsv
+          cmd_options: "-a -j"
+          allow_issue_writing: false
+          fail_action: false
+          artifact_name: zap-baseline-web
+
+      # Cada action deja report_json.json en el workspace y la siguiente lo sobrescribe.
+      - name: Conservar JSON del baseline
+        if: ${{ !cancelled() }}
+        run: cp report_json.json zap-web.json || true
+
+      - name: ZAP API scan (OpenAPI)
+        uses: zaproxy/action-api-scan@v0.10.0
+        with:
+          target: ${{ steps.entorno.outputs.api_url }}/openapi.json
+          format: openapi
+          rules_file_name: .zap/rules.tsv
+          # Tope al escaneo activo para que no exceda el timeout del job.
+          cmd_options: "-a -z \"-config scanner.maxScanDurationInMins=10 -config scanner.maxRuleDurationInMins=2\""
+          allow_issue_writing: false
+          fail_action: false
+          artifact_name: zap-api-scan
+
+      - name: Conservar JSON del API scan
+        if: ${{ !cancelled() }}
+        run: cp report_json.json zap-api.json || true
+
+      - name: Resumen
+        if: ${{ !cancelled() }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          print("### Etapa 5 - DAST (OWASP ZAP)")
+          print("Modo: **no bloqueante** (`fail_action: false`). Reglas: `.zap/rules.tsv`.\n")
+          riesgo = {"3": "High", "2": "Medium", "1": "Low", "0": "Info"}
+          for titulo, ruta in (("Baseline web", "zap-web.json"), ("API scan", "zap-api.json")):
+              print(f"#### {titulo}")
+              if not os.path.exists(ruta):
+                  print("No se generó el reporte JSON.\n")
+                  continue
+              datos = json.load(open(ruta))
+              print("| Riesgo | Alerta | ID | Instancias |\n|---|---|---|---|")
+              for sitio in datos.get("site", []):
+                  for a in sorted(sitio.get("alerts", []), key=lambda a: -int(a.get("riskcode", 0))):
+                      print(f"| {riesgo.get(a.get('riskcode'), '?')} | {a.get('name')} | {a.get('pluginid')} | {a.get('count')} |")
+              print()
+          print("\nReportes HTML/MD/JSON completos en los artefactos **zap-baseline-web** y **zap-api-scan**.")
+          EOF
+
+      - name: Logs del entorno si falla
+        if: ${{ failure() }}
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color --tail 200
