@@ -1,0 +1,42 @@
+# Override para CI (GitHub Actions). Se usa junto al compose principal:
+#   docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build --wait
+# Solo contiene valores de PRUEBA. No usar en producción.
+
+services:
+  cuidarteplus-postgres-ev:
+    restart: "no"
+    # Durante la carga del dump Postgres solo escucha por socket local, así que
+    # se verifica por TCP y que la tabla usuarios exista (dump cargado completo).
+    healthcheck:
+      test: ["CMD-SHELL", "psql -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB} -tAc 'SELECT 1 FROM usuarios LIMIT 1' | grep -q 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+
+  cuidarteplus-backend-ev:
+    restart: "no"
+    environment:
+      NODE_ENV: test
+      JWT_SECRET: ${JWT_SECRET:-ci-only-jwt-secret-not-for-production}
+    # Reemplaza el bind mount ./BACKEND/uploads (en el runner se crearía como root
+    # y la API, que corre como usuario "node", no podría escribir).
+    volumes:
+      - uploads_ci:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  cuidarteplus-frontend-ev:
+    restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ > /dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  uploads_ci:

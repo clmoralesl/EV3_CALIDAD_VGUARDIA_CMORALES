@@ -1,0 +1,48 @@
+name: Entorno CI CuidartePlus
+description: >
+  Levanta PostgreSQL (con el dump de prueba), la API Express y el frontend con
+  Docker Compose y espera a que los tres estén saludables.
+
+inputs:
+  jwt-secret:
+    description: Secreto JWT de prueba para la API
+    required: false
+    default: ci-only-jwt-secret-not-for-production
+  postgres-password:
+    description: Contraseña de la BD de prueba
+    required: false
+    default: ci_test_pw
+  timeout:
+    description: Segundos máximos de espera a que los servicios estén saludables
+    required: false
+    default: "180"
+
+outputs:
+  api_url:
+    description: URL base de la API
+    value: http://localhost:4444
+  web_url:
+    description: URL del frontend
+    value: http://localhost:3333
+
+runs:
+  using: composite
+  steps:
+    - name: Levantar BD + API + frontend
+      shell: bash
+      env:
+        JWT_SECRET: ${{ inputs.jwt-secret }}
+        POSTGRES_PASSWORD: ${{ inputs.postgres-password }}
+      run: |
+        docker compose -f docker-compose.yml -f docker-compose.ci.yml \
+          up -d --build --wait --wait-timeout "${{ inputs.timeout }}" \
+        || {
+          echo "::error::El entorno no quedó saludable. Logs de los servicios:"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml ps -a
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color
+          exit 1
+        }
+
+    - name: Estado de los servicios
+      shell: bash
+      run: docker compose -f docker-compose.yml -f docker-compose.ci.yml ps

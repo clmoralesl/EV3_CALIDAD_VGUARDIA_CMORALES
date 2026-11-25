@@ -1,0 +1,9 @@
+node_modules
+dist
+cypress/videos
+cypress/screenshots
+.env
+.env.*
+!.env.example
+*.log
+.git
