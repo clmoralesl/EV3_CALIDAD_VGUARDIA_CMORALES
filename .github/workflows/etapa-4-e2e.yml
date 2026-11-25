@@ -1,0 +1,94 @@
+# Etapa 4: pruebas funcionales E2E con Playwright (issue #5).
+# Reutilizable: el orquestador (#9) la llamará con "uses: ./.github/workflows/etapa-4-e2e.yml".
+# Mientras tanto se prueba sola en cada PR hacia qa que toque el frontend o esta etapa.
+
+name: "Etapa 4 - E2E (Playwright)"
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches: [qa]
+    paths:
+      - FRONTEND/**
+      - docker-compose*.yml
+      - .github/actions/entorno-ci/**
+      - .github/workflows/etapa-4-e2e.yml
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: 4. Pruebas E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: true
+      E2E_BASE_URL: http://localhost:3333
+      # Usuarios de PRUEBA cargados por el dump de la BD de CI (no son credenciales reales).
+      E2E_ADMIN_USER: admin
+      E2E_ADMIN_PASSWORD: S1st3m@_S3gur0
+      E2E_MEDICO_USER: medico
+      E2E_MEDICO_PASSWORD: Clinica*C3ntr0
+      E2E_PACIENTE_USER: paciente
+      E2E_PACIENTE_PASSWORD: Salud.Vital_26
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v5
+
+      - name: Levantar entorno (BD + API + frontend)
+        uses: ./.github/actions/entorno-ci
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: FRONTEND/package-lock.json
+
+      - name: Instalar dependencias FRONTEND
+        working-directory: FRONTEND
+        run: npm ci
+
+      - name: Instalar navegador Chromium
+        working-directory: FRONTEND
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar pruebas E2E
+        id: e2e
+        working-directory: FRONTEND
+        run: npx playwright test
+
+      - name: Guardar reporte Playwright
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: reporte-playwright
+          retention-days: 14
+          path: |
+            FRONTEND/playwright-report/
+            FRONTEND/test-results/
+
+      - name: Resumen
+        if: ${{ !cancelled() }}
+        working-directory: FRONTEND
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET, os
+          ruta = "test-results/junit.xml"
+          print("### Etapa 4 - Pruebas E2E (Playwright)")
+          if not os.path.exists(ruta):
+              print("No se generó el reporte JUnit.")
+          else:
+              r = ET.parse(ruta).getroot()
+              total, fallos, errores, omitidas = (int(r.get(k, 0)) for k in ("tests", "failures", "errors", "skipped"))
+              print(f"| Total | Pasaron | Fallaron | Omitidas | Tiempo |\n|---|---|---|---|---|")
+              print(f"| {total} | {total - fallos - errores - omitidas} | {fallos + errores} | {omitidas} | {float(r.get('time', 0)):.1f} s |")
+              print("\nEl reporte HTML (con trazas de los fallos) está en el artefacto **reporte-playwright**.")
+          EOF
+
+      - name: Logs del entorno si falla
+        if: ${{ failure() }}
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color --tail 200

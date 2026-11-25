@@ -11,3 +11,8 @@ node_modules/
 eslint-report.json
 snyk-report.json
 snyk.sarif
+
+# Reportes de Playwright (pruebas E2E)
+**/playwright-report/
+**/test-results/
+**/blob-report/
