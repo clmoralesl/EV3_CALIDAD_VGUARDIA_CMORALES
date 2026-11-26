@@ -1,0 +1,22 @@
+{
+  "src/app.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/routes/documentos.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/routes/examenes.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/routes/pacientes.js": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  }
+}

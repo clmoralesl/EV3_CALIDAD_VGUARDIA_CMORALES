@@ -1,0 +1,42 @@
+{
+  "src/components/RoleGuard.jsx": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/pages/auth/Register.jsx": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/pages/examenes/MisResultados.jsx": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/pages/pacientes/PacienteForm.jsx": {
+    "no-unused-vars": {
+      "count": 5
+    }
+  },
+  "src/pages/pacientes/PacientesTabCreate.jsx": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/pages/pacientes/PacientesTabList.jsx": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/pages/usuarios/UsuariosList.jsx": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/pages/usuarios/UsuariosTabCreate.jsx": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  }
+}

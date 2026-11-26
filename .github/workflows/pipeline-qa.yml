@@ -2,11 +2,19 @@
 # Se ejecuta en cada push a la rama qa (o manualmente desde la pestaña Actions).
 # Etapas: 1) SAST  2) SCA (Snyk)  3) Pruebas funcionales  4) DAST (ZAP)  5) Deploy simulado
 # Por ahora están implementadas las etapas 1 y 2.
+#
+# Política "bloquear solo lo nuevo": CuidartePlus tiene defectos INTENCIONALES (caso de estudio).
+# Esos defectos conocidos están registrados como línea base y se siguen reportando, pero no
+# bloquean. La etapa falla solo si aparece un defecto NUEVO o si la herramienta no puede ejecutarse.
+#   - ESLint: BACKEND/eslint-suppressions.json y FRONTEND/eslint-suppressions.json (bulk suppressions)
+#   - Snyk:   BACKEND/.snyk y FRONTEND/.snyk (excepciones justificadas con fecha de expiración)
 
 name: Pipeline QA
 
 on:
   push:
+    branches: [qa]
+  pull_request:
     branches: [qa]
   workflow_dispatch:
 
@@ -47,6 +55,8 @@ jobs:
       # y luego se ejecuta de nuevo en formato legible para el log.
       # continue-on-error permite que el job siga y se analicen ambos proyectos
       # aunque el primero tenga errores; el resultado real se evalúa al final.
+      # ESLint aplica eslint-suppressions.json: los errores conocidos quedan en
+      # "suppressedMessages" del JSON y solo los errores nuevos hacen fallar.
       - name: ESLint BACKEND
         id: eslint_backend
         working-directory: BACKEND
@@ -82,10 +92,20 @@ jobs:
       - name: Resultado de la etapa SAST
         if: ${{ !cancelled() }}
         run: |
+          {
+            echo "### Etapa 1 - ESLint (línea base)"
+            echo "| Proyecto | Errores nuevos | Errores conocidos (línea base) | Warnings |"
+            echo "|---|---|---|---|"
+            for p in BACKEND FRONTEND; do
+              node -e "const f='$p/eslint-report.json';if(!require('fs').existsSync(f)){console.log('| $p | sin reporte | - | - |');process.exit()}
+                const r=require('./'+f);let e=0,w=0,s=0;for(const x of r){e+=x.errorCount;w+=x.warningCount;s+=(x.suppressedMessages||[]).length}
+                console.log('| $p | '+e+' | '+s+' | '+w+' |')"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "ESLint BACKEND:  ${{ steps.eslint_backend.outcome }}"
           echo "ESLint FRONTEND: ${{ steps.eslint_frontend.outcome }}"
           if [ "${{ steps.eslint_backend.outcome }}" = "failure" ] || [ "${{ steps.eslint_frontend.outcome }}" = "failure" ]; then
-            echo "::error::ESLint encontró errores. Revisa el log o el artefacto reportes-eslint."
+            echo "::error::ESLint encontró errores NUEVOS (fuera de la línea base eslint-suppressions.json). Revisa el log o el artefacto reportes-eslint."
             exit 1
           fi
 
@@ -125,6 +145,7 @@ jobs:
       # Snyk lee package.json y package-lock.json y compara cada dependencia
       # (directa y transitiva) con su base de datos de vulnerabilidades.
       # --severity-threshold=high: solo vulnerabilidades altas o críticas hacen fallar.
+      # Las conocidas están aceptadas en .snyk (con expiración); solo las nuevas fallan.
       - name: Snyk BACKEND
         id: snyk_backend
         working-directory: BACKEND
@@ -175,9 +196,20 @@ jobs:
       - name: Resultado de la etapa SCA
         if: ${{ !cancelled() }}
         run: |
+          {
+            echo "### Etapa 2 - Snyk (línea base)"
+            echo "| Proyecto | High/Critical nuevas | Aceptadas en .snyk |"
+            echo "|---|---|---|"
+            for p in BACKEND FRONTEND; do
+              node -e "const f='$p/snyk-report.json';if(!require('fs').existsSync(f)){console.log('| $p | sin reporte | - |');process.exit()}
+                const r=require('./'+f);const u=k=>new Set((r.vulnerabilities||[]).filter(k).map(v=>v.id)).size;
+                const alta=v=>['high','critical'].includes(v.severity);
+                console.log('| $p | '+u(alta)+' | '+((r.filtered&&r.filtered.ignore)||[]).length+' |')"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "Snyk BACKEND:  ${{ steps.snyk_backend.outcome }}"
           echo "Snyk FRONTEND: ${{ steps.snyk_frontend.outcome }}"
           if [ "${{ steps.snyk_backend.outcome }}" = "failure" ] || [ "${{ steps.snyk_frontend.outcome }}" = "failure" ]; then
-            echo "::error::Snyk encontró vulnerabilidades altas o críticas. Revisa el log o el artefacto reportes-snyk."
+            echo "::error::Snyk encontró vulnerabilidades high/critical NUEVAS (no aceptadas en .snyk) o no pudo ejecutarse. Revisa el log o el artefacto reportes-snyk."
             exit 1
           fi
