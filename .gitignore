@@ -16,3 +16,7 @@ snyk.sarif
 **/playwright-report/
 **/test-results/
 **/blob-report/
+
+# Reportes de pruebas de API (Vitest)
+BACKEND/coverage/
+BACKEND/reports/
