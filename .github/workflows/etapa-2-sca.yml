@@ -1,0 +1,152 @@
+# Etapa 2: análisis de dependencias (SCA) con Snyk (issue #3).
+# Reutilizable: el orquestador (#9) la llamará con
+#   uses: ./.github/workflows/etapa-2-sca.yml
+#   secrets: inherit
+# Mientras tanto se prueba sola en cada PR hacia qa que toque dependencias o esta etapa.
+#
+# Política "bloquear solo lo nuevo": las vulnerabilidades high/critical conocidas (intencionales)
+# están aceptadas en BACKEND/.snyk y FRONTEND/.snyk, con justificación y fecha de expiración.
+# Snyk se ejecuta SIN umbral para contar todas las severidades; la etapa falla solo si queda
+# alguna high/critical NO aceptada (nueva o con la excepción expirada) o si Snyk no puede ejecutarse.
+
+name: "Etapa 2 - SCA (Snyk)"
+
+on:
+  workflow_call:
+    secrets:
+      SNYK_TOKEN:
+        required: true
+  workflow_dispatch:
+  pull_request:
+    branches: [qa]
+    paths:
+      - BACKEND/package*.json
+      - BACKEND/.snyk
+      - FRONTEND/package*.json
+      - FRONTEND/.snyk
+      - .github/workflows/etapa-2-sca.yml
+
+permissions:
+  contents: read
+  security-events: write # publicar SARIF en Security > Code scanning
+
+jobs:
+  sca:
+    name: 2. Vulnerabilidades en dependencias (Snyk)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v5
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Verificar token de Snyk
+        run: |
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "::error::Falta el secreto SNYK_TOKEN en Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Instalar Snyk CLI
+        run: npm install -g snyk@1
+
+      # Snyk lee package.json y package-lock.json y compara cada dependencia (directa y
+      # transitiva) con su base de datos, aplicando las excepciones de .snyk.
+      # Códigos de salida: 0 sin vulnerabilidades, 1 con vulnerabilidades, 2/3 error de ejecución.
+      - name: Snyk BACKEND y FRONTEND
+        id: snyk
+        run: |
+          for p in BACKEND FRONTEND; do
+            echo "::group::Snyk $p"
+            set +e
+            (cd "$p" && snyk test --json-file-output=snyk-report.json --sarif-file-output=snyk.sarif)
+            codigo=$?
+            set -e
+            echo "::endgroup::"
+            echo "Snyk $p -> código $codigo"
+            echo "codigo_${p,,}=$codigo" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Guardar reportes Snyk
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-snyk
+          if-no-files-found: ignore
+          path: |
+            BACKEND/snyk-report.json
+            FRONTEND/snyk-report.json
+            BACKEND/snyk.sarif
+            FRONTEND/snyk.sarif
+
+      # Publica los hallazgos en la pestaña Security > Code scanning del repositorio
+      - name: Publicar resultados BACKEND en GitHub Security
+        if: ${{ !cancelled() && hashFiles('BACKEND/snyk.sarif') != '' }}
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: BACKEND/snyk.sarif
+          category: snyk-backend
+
+      - name: Publicar resultados FRONTEND en GitHub Security
+        if: ${{ !cancelled() && hashFiles('FRONTEND/snyk.sarif') != '' }}
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: FRONTEND/snyk.sarif
+          category: snyk-frontend
+
+      - name: Resultado de la etapa SCA
+        if: ${{ !cancelled() }}
+        env:
+          CODIGO_BACKEND: ${{ steps.snyk.outputs.codigo_backend }}
+          CODIGO_FRONTEND: ${{ steps.snyk.outputs.codigo_frontend }}
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const sev = ['critical', 'high', 'medium', 'low'];
+          const filas = [];
+          let fallo = false;
+          for (const p of ['BACKEND', 'FRONTEND']) {
+            const codigo = process.env['CODIGO_' + p];
+            const f = `${p}/snyk-report.json`;
+            if (!['0', '1'].includes(codigo) || !fs.existsSync(f)) {
+              console.log(`::error::Snyk no pudo analizar ${p} (código ${codigo || 'sin ejecutar'}).`);
+              filas.push(`| ${p} | error de ejecución (código ${codigo || '-'}) | | | | | |`);
+              fallo = true;
+              continue;
+            }
+            const r = JSON.parse(fs.readFileSync(f, 'utf8'));
+            // Vulnerabilidades únicas por id (Snyk repite una por cada ruta de dependencia)
+            const unicas = new Map((r.vulnerabilities || []).map(v => [v.id, v]));
+            const cuenta = Object.fromEntries(sev.map(s => [s, 0]));
+            for (const v of unicas.values()) cuenta[v.severity]++;
+            const aceptadas = ((r.filtered && r.filtered.ignore) || []).length;
+            const nuevas = [...unicas.values()].filter(v => ['high', 'critical'].includes(v.severity));
+            for (const v of nuevas)
+              console.log(`::error::${p}: ${v.severity} ${v.id} en ${v.packageName}@${v.version} (${v.title}) no está aceptada en .snyk`);
+            if (nuevas.length) fallo = true;
+            filas.push(`| ${p} | ${cuenta.critical} | ${cuenta.high} | ${cuenta.medium} | ${cuenta.low} | ${aceptadas} | ${nuevas.length ? '❌ ' + nuevas.length : '✅ 0'} |`);
+          }
+          const resumen = [
+            '### Etapa 2 - Snyk (línea base)',
+            'Política: falla solo ante *high/critical* **no aceptadas** en `.snyk`. Medium/low se reportan sin bloquear. Las columnas por severidad cuentan las vigentes (sin las aceptadas).\n',
+            '| Proyecto | Critical | High | Medium | Low | Aceptadas en .snyk | High/Critical nuevas |',
+            '|---|---|---|---|---|---|---|',
+            ...filas,
+            '\nReportes JSON y SARIF en el artefacto **reportes-snyk**; hallazgos en *Security → Code scanning*.',
+          ].join('\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, resumen + '\n');
+          console.log(resumen);
+          if (fallo) {
+            console.log('::error::Snyk encontró vulnerabilidades high/critical NUEVAS (no aceptadas en .snyk) o no pudo ejecutarse. Revisa el log o el artefacto reportes-snyk.');
+            process.exit(1);
+          }
+          EOF
