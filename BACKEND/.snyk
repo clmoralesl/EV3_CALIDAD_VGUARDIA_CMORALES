@@ -1,0 +1,97 @@
+# Política de excepciones Snyk (issue #3 / línea base del pipeline).
+# CuidartePlus es intencionalmente vulnerable: estas vulnerabilidades high/critical son
+# DEUDA CONOCIDA y aceptada temporalmente. Cualquier vulnerabilidad nueva hace fallar la etapa.
+# Al expirar, Snyk vuelve a reportarlas. Mitigación: actualizar la dependencia indicada.
+version: v1.25.0
+ignore:
+  SNYK-JS-BODYPARSER-21431495:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en body-parser@1.20.3 vía express@4.21.2 - Uncaught Exception. Mitigación: actualizar express."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-JWS-14188253:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en jws@3.2.2 vía jsonwebtoken@9.0.2 - Improper Verification of Cryptographic Signature. Mitigación: actualizar jsonwebtoken."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-10185673:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Uncaught Exception. Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-10185675:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Missing Release of Memory after Effective Lifetime. Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-10299078:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): critical en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Uncaught Exception. Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-10773732:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Uncaught Exception. Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-15365916:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Missing Release of Resource after Effective Lifetime. Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-15365918:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Incomplete Cleanup. Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-15417528:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Uncontrolled Recursion. Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-17342512:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Uncontrolled Recursion. Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-19432021:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Uncaught Exception. Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-19432131:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Denial of Service (DoS). Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-19432134:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Race Condition. Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MULTER-19432136:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en multer@1.4.5-lts.2 vía multer@1.4.5-lts.2 - Denial of Service (DoS). Mitigación: actualizar multer."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-PROXYADDR-19812342:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): critical en proxy-addr@2.0.7 vía express@4.21.2 - User Impersonation. Mitigación: actualizar express."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-QS-14724253:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en qs@6.13.0 vía express@4.21.2 - Allocation of Resources Without Limits or Throttling. Mitigación: actualizar express."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-QS-15268416:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en qs@6.13.0 vía express@4.21.2 - Allocation of Resources Without Limits or Throttling. Mitigación: actualizar express."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-QS-20943482:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en qs@6.13.0 vía express@4.21.2 - Uncaught Exception. Mitigación: actualizar express."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+patch: {}

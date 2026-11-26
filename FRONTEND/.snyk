@@ -1,0 +1,127 @@
+# Política de excepciones Snyk (issue #3 / línea base del pipeline).
+# CuidartePlus es intencionalmente vulnerable: estas vulnerabilidades high/critical son
+# DEUDA CONOCIDA y aceptada temporalmente. Cualquier vulnerabilidad nueva hace fallar la etapa.
+# Al expirar, Snyk vuelve a reportarlas. Mitigación: actualizar la dependencia indicada.
+version: v1.25.0
+ignore:
+  SNYK-JS-AXIOS-15252993:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en axios@1.13.2 vía axios@1.13.2 - Prototype Pollution. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-15969258:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en axios@1.13.2 vía axios@1.13.2 - HTTP Response Splitting. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-16298058:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): critical en axios@1.13.2 vía axios@1.13.2 - HTTP Response Splitting. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-16299904:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): critical en axios@1.13.2 vía axios@1.13.2 - Prototype Pollution. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-16299921:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en axios@1.13.2 vía axios@1.13.2 - Improperly Controlled Modification of Dynamically-Determined Object Attributes. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-16299923:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en axios@1.13.2 vía axios@1.13.2 - Uncontrolled Recursion. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-16417750:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): critical en axios@1.13.2 vía axios@1.13.2 - Prototype Pollution. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-17111060:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en axios@1.13.2 vía axios@1.13.2 - Prototype Pollution. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-17111062:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en axios@1.13.2 vía axios@1.13.2 - Server-side Request Forgery (SSRF). Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-17111079:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en axios@1.13.2 vía axios@1.13.2 - Prototype Pollution. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-17172681:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en axios@1.13.2 vía axios@1.13.2 - Insertion of Sensitive Information Into Sent Data. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-20245044:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en axios@1.13.2 vía axios@1.13.2 - Improper Validation of Specified Quantity in Input. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-20245046:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en axios@1.13.2 vía axios@1.13.2 - Improper Validation of Specified Quantity in Input. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-AXIOS-20245060:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en axios@1.13.2 vía axios@1.13.2 - Server-side Request Forgery (SSRF). Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-FOLLOWREDIRECTS-16032162:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en follow-redirects@1.15.11 vía axios@1.13.2 - Improper Removal of Sensitive Information Before Storage or Transfer. Mitigación: actualizar axios."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-LODASH-15869625:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en lodash@4.17.21 vía formik@2.4.9 - Arbitrary Code Injection. Mitigación: actualizar formik."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-LODASHES-15869627:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en lodash-es@4.17.21 vía formik@2.4.9 - Arbitrary Code Injection. Mitigación: actualizar formik."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-REACTROUTER-14908531:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en react-router@7.9.6 vía react-router-dom@7.9.6 - Cross-site Scripting (XSS). Mitigación: actualizar react-router-dom."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-REACTROUTER-17137394:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): critical en react-router@7.9.6 vía react-router-dom@7.9.6 - Deserialization of Untrusted Data. Mitigación: actualizar react-router-dom."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-REACTROUTER-17138701:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en react-router@7.9.6 vía react-router-dom@7.9.6 - Allocation of Resources Without Limits or Throttling. Mitigación: actualizar react-router-dom."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-REACTROUTER-17138883:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en react-router@7.9.6 vía react-router-dom@7.9.6 - Allocation of Resources Without Limits or Throttling. Mitigación: actualizar react-router-dom."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-REACTROUTER-17138887:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en react-router@7.9.6 vía react-router-dom@7.9.6 - Open Redirect. Mitigación: actualizar react-router-dom."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-REACTROUTER-18313144:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en react-router@7.9.6 vía react-router-dom@7.9.6 - Open Redirect. Mitigación: actualizar react-router-dom."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-REACTROUTER-18313148:
+    - "*":
+        reason: "Riesgo aceptado (caso de estudio EV3): high en react-router@7.9.6 vía react-router-dom@7.9.6 - Inefficient Algorithmic Complexity. Mitigación: actualizar react-router-dom."
+        expires: 2027-01-31T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+patch: {}
