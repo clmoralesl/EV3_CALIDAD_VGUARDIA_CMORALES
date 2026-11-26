@@ -1,0 +1,146 @@
+# Etapa 7: despliegue simulado con Docker Compose (issue #8).
+# Reutilizable: el orquestador (#9) la llamará con "uses: ./.github/workflows/etapa-7-deploy.yml".
+#
+# - En push a qa / workflow_call / workflow_dispatch el job usa el environment "qa":
+#   queda en espera hasta que un revisor lo apruebe (regla configurada en #12, solo rama qa).
+# - En un PR hacia qa corre como ENSAYO sin environment (el environment rechaza refs de PR),
+#   para validar build + smoke test antes del merge.
+
+name: "Etapa 7 - Deploy simulado"
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [qa]
+    paths:
+      - FRONTEND/**
+      - BACKEND/**
+      - docker-compose*.yml
+      - .github/actions/entorno-ci/**
+      - .github/workflows/etapa-7-deploy.yml
+  pull_request:
+    branches: [qa]
+    paths:
+      - docker-compose*.yml
+      - .github/actions/entorno-ci/**
+      - .github/workflows/etapa-7-deploy.yml
+
+permissions:
+  contents: read
+  actions: read # leer quién aprobó el despliegue
+
+concurrency:
+  group: deploy-qa-${{ github.event_name == 'pull_request' && github.head_ref || 'qa' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 7. Deploy simulado (qa)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Cadena vacía = sin environment (ensayo en PR).
+    environment: ${{ github.event_name != 'pull_request' && 'qa' || '' }}
+    env:
+      VERSION: ${{ github.sha }}
+      MODO: ${{ github.event_name == 'pull_request' && 'ensayo (PR, sin aprobación)' || 'despliegue en qa' }}
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v5
+
+      - name: Build + despliegue (BD + API + frontend)
+        id: entorno
+        uses: ./.github/actions/entorno-ci
+
+      - name: Etiquetar imágenes con el SHA del commit
+        id: imagenes
+        run: |
+          corto="${VERSION::7}"
+          : > imagenes.txt
+          for svc in cuidarteplus-backend-ev cuidarteplus-frontend-ev; do
+            id=$(docker compose -f docker-compose.yml -f docker-compose.ci.yml images -q "$svc")
+            destino="cuidarteplus/${svc%-ev}:${corto}"
+            docker tag "$id" "$destino"
+            echo "$destino $id" >> imagenes.txt
+          done
+          cat imagenes.txt
+          echo "corto=$corto" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test (API y frontend)
+        run: |
+          set -e
+          api="${{ steps.entorno.outputs.api_url }}"
+          web="${{ steps.entorno.outputs.web_url }}"
+          curl -fsS --retry 5 --retry-delay 2 --retry-all-errors "$api/" -o /dev/null
+          curl -fsS "$api/openapi.json" | grep -q '"openapi"'
+          curl -fsS --retry 5 --retry-delay 2 --retry-all-errors "$web/" | grep -qi '<div id="root"'
+          # El login con credenciales inválidas debe responder 4xx, no 5xx.
+          codigo=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$api/autenticacion/login" \
+            -H 'Content-Type: application/json' -d '{"nombre_usuario":"smoke","password":"Smoke.test_123"}')
+          echo "POST /autenticacion/login -> $codigo"
+          [ "$codigo" -ge 400 ] && [ "$codigo" -lt 500 ]
+          echo "Smoke test OK"
+
+      - name: Quién aprobó
+        id: aprobacion
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          aprobador=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/approvals" \
+            --jq '[.[] | select(.state=="approved") | .user.login] | join(", ")' 2>/dev/null || true)
+          echo "aprobador=${aprobador:-sin registro}" >> "$GITHUB_OUTPUT"
+
+      - name: Manifiesto de la release
+        run: |
+          mkdir -p release
+          {
+            echo "{"
+            echo "  \"version\": \"$VERSION\","
+            echo "  \"modo\": \"$MODO\","
+            echo "  \"rama\": \"${{ github.ref_name }}\","
+            echo "  \"fecha_utc\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\","
+            echo "  \"ejecutado_por\": \"${{ github.actor }}\","
+            echo "  \"aprobador\": \"${{ steps.aprobacion.outputs.aprobador || 'no aplica (ensayo)' }}\","
+            echo "  \"run\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\","
+            echo "  \"imagenes\": ["
+            sep=""
+            while read -r tag id; do
+              printf '%s    {"tag": "%s", "id": "%s"}' "$sep" "$tag" "$id"; sep=$',\n'
+            done < imagenes.txt
+            echo; echo "  ],"
+            echo "  \"postgres\": \"$(docker compose -f docker-compose.yml -f docker-compose.ci.yml config --images | grep postgres)\""
+            echo "}"
+          } > release/manifiesto.json
+          cat release/manifiesto.json
+          docker save $(cut -d' ' -f1 imagenes.txt) | gzip -1 > "release/imagenes-${{ steps.imagenes.outputs.corto }}.tar.gz"
+          ls -lh release
+
+      - name: Guardar release
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-qa-${{ steps.imagenes.outputs.corto }}
+          retention-days: 14
+          path: release/
+
+      - name: Resumen
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "### Etapa 7 - Deploy simulado"
+            echo "| Campo | Valor |"
+            echo "|---|---|"
+            echo "| Modo | $MODO |"
+            echo "| Commit | \`$VERSION\` |"
+            echo "| Fecha (UTC) | $(date -u '+%Y-%m-%d %H:%M') |"
+            echo "| Ejecutado por | ${{ github.actor }} |"
+            echo "| Aprobado por | ${{ steps.aprobacion.outputs.aprobador || 'no aplica (ensayo)' }} |"
+            [ -f imagenes.txt ] && while read -r tag id; do echo "| Imagen | \`$tag\` (\`${id::19}\`) |"; done < imagenes.txt
+            echo
+            echo "Manifiesto e imágenes (\`docker save\`) en el artefacto **release-qa-${{ steps.imagenes.outputs.corto }}**."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Logs del entorno si falla
+        if: ${{ failure() }}
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color --tail 200
