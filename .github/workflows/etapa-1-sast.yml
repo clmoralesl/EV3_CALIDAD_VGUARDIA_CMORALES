@@ -1,0 +1,136 @@
+# Etapa 1: análisis estático (SAST) con ESLint + SonarCloud (issue #2).
+# Reutilizable: el orquestador (#9) la llamará con
+#   uses: ./.github/workflows/etapa-1-sast.yml
+#   secrets: inherit
+# Mientras tanto se prueba sola en cada PR hacia qa que toque código o esta etapa.
+#
+# Política "bloquear solo lo nuevo": los errores ESLint conocidos (intencionales) están en
+# BACKEND/eslint-suppressions.json y FRONTEND/eslint-suppressions.json; se reportan pero no
+# bloquean. Falla ante un error ESLint NUEVO o si el Quality Gate de SonarCloud (código nuevo) falla.
+
+name: "Etapa 1 - SAST (ESLint + SonarCloud)"
+
+on:
+  workflow_call:
+    secrets:
+      SONAR_TOKEN:
+        required: false
+  workflow_dispatch:
+  pull_request:
+    branches: [qa]
+    paths:
+      - BACKEND/**
+      - FRONTEND/**
+      - sonar-project.properties
+      - .github/workflows/etapa-1-sast.yml
+
+permissions:
+  contents: read
+  pull-requests: read # SonarCloud decora el análisis del PR
+
+jobs:
+  sast:
+    name: 1. Verificación estática (ESLint + SonarCloud)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # SonarCloud necesita el historial completo para detectar código nuevo
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            BACKEND/package-lock.json
+            FRONTEND/package-lock.json
+
+      - name: Instalar dependencias BACKEND
+        working-directory: BACKEND
+        run: npm ci
+
+      - name: Instalar dependencias FRONTEND
+        working-directory: FRONTEND
+        run: npm ci
+
+      # Cada análisis genera un reporte JSON (para SonarCloud y como evidencia)
+      # y luego se ejecuta de nuevo en formato legible para el log.
+      # continue-on-error permite que el job siga y se analicen ambos proyectos
+      # aunque el primero tenga errores; el resultado real se evalúa al final.
+      # ESLint aplica eslint-suppressions.json: los errores conocidos quedan en
+      # "suppressedMessages" del JSON y solo los errores nuevos hacen fallar.
+      - name: ESLint BACKEND
+        id: eslint_backend
+        working-directory: BACKEND
+        continue-on-error: true
+        run: |
+          npx eslint . --format json --output-file eslint-report.json || true
+          npx eslint .
+
+      - name: ESLint FRONTEND
+        id: eslint_frontend
+        working-directory: FRONTEND
+        continue-on-error: true
+        run: |
+          npx eslint . --format json --output-file eslint-report.json || true
+          npx eslint .
+
+      - name: Guardar reportes ESLint
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-eslint
+          path: |
+            BACKEND/eslint-report.json
+            FRONTEND/eslint-report.json
+
+      # Se omite si no existe el secreto SONAR_TOKEN. Con sonar.qualitygate.wait=true
+      # (sonar-project.properties) el paso falla si el Quality Gate falla. El gate evalúa
+      # solo el CÓDIGO NUEVO (Clean as You Code), coherente con "bloquear solo lo nuevo".
+      - name: Análisis SonarCloud
+        id: sonar
+        if: ${{ !cancelled() && env.SONAR_TOKEN != '' }}
+        continue-on-error: true # el resultado se evalúa en el último paso
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_HOST_URL: https://sonarcloud.io
+
+      - name: Resultado de la etapa SAST
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "### Etapa 1 - ESLint (línea base)"
+            echo "| Proyecto | Errores nuevos | Errores conocidos (línea base) | Warnings |"
+            echo "|---|---|---|---|"
+            for p in BACKEND FRONTEND; do
+              node -e "const f='$p/eslint-report.json';if(!require('fs').existsSync(f)){console.log('| $p | sin reporte | - | - |');process.exit()}
+                const r=require('./'+f);let e=0,w=0,s=0;for(const x of r){e+=x.errorCount;w+=x.warningCount;s+=(x.suppressedMessages||[]).length}
+                console.log('| $p | '+e+' | '+s+' | '+w+' |')"
+            done
+            echo
+            case "${{ steps.sonar.outcome }}" in
+              success) gate="✅ aprobado" ;;
+              failure) gate="❌ no aprobado (o el análisis falló)" ;;
+              *)       gate="⏭️ omitido (falta SONAR_TOKEN)" ;;
+            esac
+            echo "**Quality Gate SonarCloud (código nuevo):** $gate — [ver en SonarCloud](https://sonarcloud.io/summary/new_code?id=clmoralesl_EV3_CALIDAD_VGUARDIA_CMORALES)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "ESLint BACKEND:  ${{ steps.eslint_backend.outcome }}"
+          echo "ESLint FRONTEND: ${{ steps.eslint_frontend.outcome }}"
+          echo "SonarCloud:      ${{ steps.sonar.outcome }}"
+          fallo=0
+          if [ "${{ steps.eslint_backend.outcome }}" = "failure" ] || [ "${{ steps.eslint_frontend.outcome }}" = "failure" ]; then
+            echo "::error::ESLint encontró errores NUEVOS (fuera de la línea base eslint-suppressions.json). Revisa el log o el artefacto reportes-eslint."
+            fallo=1
+          fi
+          if [ "${{ steps.sonar.outcome }}" = "failure" ]; then
+            echo "::error::El Quality Gate de SonarCloud no pasó sobre el código nuevo (o el análisis falló). Revisa SonarCloud."
+            fallo=1
+          fi
+          exit $fallo
