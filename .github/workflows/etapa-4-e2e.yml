@@ -1,19 +1,12 @@
 # Etapa 4: pruebas funcionales E2E con Playwright (issue #5).
 # Reutilizable: el orquestador (#9) la llamará con "uses: ./.github/workflows/etapa-4-e2e.yml".
-# Mientras tanto se prueba sola en cada PR hacia qa que toque el frontend o esta etapa.
+# Se ejecuta desde el orquestador pipeline-qa.yml (PR y push a qa) o manualmente (workflow_dispatch).
 
 name: "Etapa 4 - E2E (Playwright)"
 
 on:
   workflow_call:
   workflow_dispatch:
-  pull_request:
-    branches: [qa]
-    paths:
-      - FRONTEND/**
-      - docker-compose*.yml
-      - .github/actions/entorno-ci/**
-      - .github/workflows/etapa-4-e2e.yml
 
 permissions:
   contents: read

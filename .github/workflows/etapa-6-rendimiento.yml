@@ -1,6 +1,6 @@
 # Etapa 6: pruebas de rendimiento con Locust (issue #7).
 # Reutilizable: el orquestador (#9) la llamará con "uses: ./.github/workflows/etapa-6-rendimiento.yml".
-# Mientras tanto se prueba sola en cada PR hacia qa que toque la app o esta etapa.
+# Se ejecuta desde el orquestador pipeline-qa.yml (PR y push a qa) o manualmente (workflow_dispatch).
 #
 # Carga ligera (20 usuarios, 5 nuevos/s, 1 minuto) contra la API levantada con entorno-ci.
 # Los umbrales p95 por petición y la tasa de error máxima están en tests/performance/umbrales.json,
@@ -12,14 +12,6 @@ name: "Etapa 6 - Rendimiento (Locust)"
 on:
   workflow_call:
   workflow_dispatch:
-  pull_request:
-    branches: [qa]
-    paths:
-      - BACKEND/**
-      - docker-compose*.yml
-      - tests/performance/**
-      - .github/actions/entorno-ci/**
-      - .github/workflows/etapa-6-rendimiento.yml
 
 permissions:
   contents: read

@@ -2,7 +2,7 @@
 # Reutilizable: el orquestador (#9) la llamará con
 #   uses: ./.github/workflows/etapa-2-sca.yml
 #   secrets: inherit
-# Mientras tanto se prueba sola en cada PR hacia qa que toque dependencias o esta etapa.
+# Se ejecuta desde el orquestador pipeline-qa.yml (PR y push a qa) o manualmente (workflow_dispatch).
 #
 # Política "bloquear solo lo nuevo": las vulnerabilidades high/critical conocidas (intencionales)
 # están aceptadas en BACKEND/.snyk y FRONTEND/.snyk, con justificación y fecha de expiración.
@@ -17,14 +17,6 @@ on:
       SNYK_TOKEN:
         required: true
   workflow_dispatch:
-  pull_request:
-    branches: [qa]
-    paths:
-      - BACKEND/package*.json
-      - BACKEND/.snyk
-      - FRONTEND/package*.json
-      - FRONTEND/.snyk
-      - .github/workflows/etapa-2-sca.yml
 
 permissions:
   contents: read

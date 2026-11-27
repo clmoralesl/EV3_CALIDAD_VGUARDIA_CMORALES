@@ -2,7 +2,7 @@
 # Reutilizable: el orquestador (#9) la llamará con
 #   uses: ./.github/workflows/etapa-1-sast.yml
 #   secrets: inherit
-# Mientras tanto se prueba sola en cada PR hacia qa que toque código o esta etapa.
+# Se ejecuta desde el orquestador pipeline-qa.yml (PR y push a qa) o manualmente (workflow_dispatch).
 #
 # Política "bloquear solo lo nuevo": los errores ESLint conocidos (intencionales) están en
 # BACKEND/eslint-suppressions.json y FRONTEND/eslint-suppressions.json; se reportan pero no
@@ -12,17 +12,15 @@ name: "Etapa 1 - SAST (ESLint + SonarCloud)"
 
 on:
   workflow_call:
+    inputs:
+      cobertura:
+        description: Descargar la cobertura (lcov) de la etapa 3 y enviarla a SonarCloud
+        type: boolean
+        default: false
     secrets:
       SONAR_TOKEN:
         required: false
   workflow_dispatch:
-  pull_request:
-    branches: [qa]
-    paths:
-      - BACKEND/**
-      - FRONTEND/**
-      - sonar-project.properties
-      - .github/workflows/etapa-1-sast.yml
 
 permissions:
   contents: read
@@ -58,6 +56,22 @@ jobs:
       - name: Instalar dependencias FRONTEND
         working-directory: FRONTEND
         run: npm ci
+
+      # Cobertura de las pruebas de API (etapa 3, mismo run). Si no existe, Sonar analiza sin ella.
+      - name: Descargar cobertura de la API
+        if: ${{ inputs.cobertura }}
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: reporte-api
+          path: BACKEND
+
+      # Vitest escribe rutas relativas a BACKEND (SF:src/...); Sonar las necesita desde la raíz.
+      - name: Ajustar rutas del lcov para SonarCloud
+        if: ${{ inputs.cobertura && hashFiles('BACKEND/coverage/lcov.info') != '' }}
+        run: |
+          sed -i 's#^SF:src/#SF:BACKEND/src/#' BACKEND/coverage/lcov.info
+          echo "Archivos con cobertura: $(grep -c '^SF:' BACKEND/coverage/lcov.info)"
 
       # Cada análisis genera un reporte JSON (para SonarCloud y como evidencia)
       # y luego se ejecuta de nuevo en formato legible para el log.

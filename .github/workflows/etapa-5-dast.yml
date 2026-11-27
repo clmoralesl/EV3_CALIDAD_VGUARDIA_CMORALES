@@ -1,6 +1,6 @@
 # Etapa 5: pruebas dinámicas de seguridad (DAST) con OWASP ZAP (issue #6).
 # Reutilizable: el orquestador (#9) la llamará con "uses: ./.github/workflows/etapa-5-dast.yml".
-# Mientras tanto se prueba sola en cada PR hacia qa que toque la app o esta etapa.
+# Se ejecuta desde el orquestador pipeline-qa.yml (PR y push a qa) o manualmente (workflow_dispatch).
 #
 # - Baseline (pasivo) sobre el frontend: http://localhost:3333
 # - API scan (activo) sobre la API usando su contrato: http://localhost:4444/openapi.json
@@ -11,15 +11,6 @@ name: "Etapa 5 - DAST (OWASP ZAP)"
 on:
   workflow_call:
   workflow_dispatch:
-  pull_request:
-    branches: [qa]
-    paths:
-      - FRONTEND/**
-      - BACKEND/**
-      - docker-compose*.yml
-      - .zap/**
-      - .github/actions/entorno-ci/**
-      - .github/workflows/etapa-5-dast.yml
 
 permissions:
   contents: read

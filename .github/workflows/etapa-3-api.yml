@@ -1,6 +1,6 @@
 # Etapa 3: pruebas funcionales de la API con Vitest + Supertest (issue #4).
 # Reutilizable: el orquestador (#9) la llamará con "uses: ./.github/workflows/etapa-3-api.yml".
-# Mientras tanto se prueba sola en cada PR hacia qa que toque el BACKEND o esta etapa.
+# Se ejecuta desde el orquestador pipeline-qa.yml (PR y push a qa) o manualmente (workflow_dispatch).
 #
 # Los casos llevan el ID de SquashTM (CP-xx). Los defectos INTENCIONALES de la app se documentan
 # con it.fails("... [defecto conocido: ...]"): pasan mientras el defecto exista ("bloquear solo
@@ -11,11 +11,6 @@ name: "Etapa 3 - Pruebas de API (Vitest)"
 on:
   workflow_call:
   workflow_dispatch:
-  pull_request:
-    branches: [qa]
-    paths:
-      - BACKEND/**
-      - .github/workflows/etapa-3-api.yml
 
 permissions:
   contents: read
