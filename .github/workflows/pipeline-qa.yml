@@ -82,9 +82,11 @@ jobs:
             BACKEND/eslint-report.json
             FRONTEND/eslint-report.json
 
-      # Se omite si aún no existe el secreto SONAR_TOKEN en el repositorio
+      # Se omite si aún no existe el secreto SONAR_TOKEN en el repositorio.
+      # En pull_request lo hace etapa-1-sast.yml: dos análisis simultáneos del mismo commit
+      # hacen que SonarCloud aborte uno (CE Task FAILED). Temporal hasta el orquestador (#9).
       - name: Análisis SonarCloud
-        if: ${{ !cancelled() && env.SONAR_TOKEN != '' }}
+        if: ${{ !cancelled() && env.SONAR_TOKEN != '' && github.event_name != 'pull_request' }}
         uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_HOST_URL: https://sonarcloud.io
