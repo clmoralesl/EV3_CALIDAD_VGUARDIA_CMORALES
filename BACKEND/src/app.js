@@ -46,7 +46,13 @@ app.get("/", (req, res) => {
   res.json({ name: "cuidarteplus", status: "ok" });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`cuidarteplus API escuchando en puerto ${PORT}`);
-});
+// Solo escucha si se ejecuta directamente (npm start / Docker). Las pruebas (#4)
+// importan la app sin levantar el servidor.
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`cuidarteplus API escuchando en puerto ${PORT}`);
+  });
+}
+
+module.exports = app;

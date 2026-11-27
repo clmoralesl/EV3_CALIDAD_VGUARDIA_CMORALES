@@ -1,0 +1,126 @@
+# Etapa 3: pruebas funcionales de la API con Vitest + Supertest (issue #4).
+# Reutilizable: el orquestador (#9) la llamará con "uses: ./.github/workflows/etapa-3-api.yml".
+# Mientras tanto se prueba sola en cada PR hacia qa que toque el BACKEND o esta etapa.
+#
+# Los casos llevan el ID de SquashTM (CP-xx). Los defectos INTENCIONALES de la app se documentan
+# con it.fails("... [defecto conocido: ...]"): pasan mientras el defecto exista ("bloquear solo
+# lo nuevo") y avisan si alguien lo corrige. Cualquier otra prueba que falle bloquea la etapa.
+
+name: "Etapa 3 - Pruebas de API (Vitest)"
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches: [qa]
+    paths:
+      - BACKEND/**
+      - .github/workflows/etapa-3-api.yml
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: 3. Pruebas funcionales de API (Vitest + Supertest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Valores de PRUEBA, solo para CI.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ci_test_pw
+      POSTGRES_DB: cuidarteplus
+      DATABASE_URL: postgres://postgres:ci_test_pw@localhost:5432/cuidarteplus
+      JWT_SECRET: ci-only-jwt-secret-not-for-production
+      NODE_ENV: test
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_pw
+          POSTGRES_DB: cuidarteplus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cuidarteplus"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v5
+
+      # Se reutiliza el mismo script que usa Docker Compose, para que la BD sea idéntica.
+      - name: Cargar el dump de prueba en PostgreSQL
+        env:
+          PGHOST: localhost
+          PGPASSWORD: ci_test_pw
+        run: |
+          cp BACKEND/sql/dump-cuidarteplus.sql /tmp/dump-cuidarteplus.sql
+          bash BACKEND/sql/init-db.sh
+          psql -U postgres -d cuidarteplus -tAc "SELECT count(*) FROM usuarios" | grep -qv '^0$'
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: BACKEND/package-lock.json
+
+      - name: Instalar dependencias BACKEND
+        working-directory: BACKEND
+        run: npm ci
+
+      - name: Ejecutar pruebas de API
+        working-directory: BACKEND
+        run: npm run test:ci
+
+      - name: Guardar reportes (JUnit + cobertura)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: reporte-api
+          retention-days: 14
+          if-no-files-found: ignore
+          path: |
+            BACKEND/reports/
+            BACKEND/coverage/
+
+      - name: Resumen
+        if: ${{ !cancelled() }}
+        working-directory: BACKEND
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET, json, os
+          print("### Etapa 3 - Pruebas de API (Vitest + Supertest)")
+          if not os.path.exists("reports/junit.xml"):
+              print("No se generó el reporte JUnit.")
+          else:
+              r = ET.parse("reports/junit.xml").getroot()
+              casos = r.iter("testcase")
+              total = fallos = omitidas = conocidos = 0
+              defectos = []
+              for c in casos:
+                  total += 1
+                  nombre = c.get("name", "")
+                  if c.find("failure") is not None or c.find("error") is not None:
+                      fallos += 1
+                  elif c.find("skipped") is not None:
+                      omitidas += 1
+                  if "[defecto conocido" in nombre:
+                      conocidos += 1
+                      defectos.append(nombre)
+              print("| Total | Pasaron | Fallaron | Omitidas | Defectos conocidos documentados |\n|---|---|---|---|---|")
+              print(f"| {total} | {total - fallos - omitidas} | {fallos} | {omitidas} | {conocidos} |")
+              if defectos:
+                  print("\n**Defectos conocidos** (`it.fails`, no bloquean):")
+                  for d in defectos:
+                      print(f"- {d}")
+          if os.path.exists("coverage/coverage-summary.json"):
+              t = json.load(open("coverage/coverage-summary.json"))["total"]
+              print(f"\n**Cobertura:** líneas {t['lines']['pct']} % · funciones {t['functions']['pct']} % · ramas {t['branches']['pct']} %")
+          print("\nReporte JUnit y cobertura (lcov/HTML) en el artefacto **reporte-api**.")
+          EOF
