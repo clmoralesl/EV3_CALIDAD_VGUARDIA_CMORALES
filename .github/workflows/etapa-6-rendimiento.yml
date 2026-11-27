@@ -1,0 +1,82 @@
+# Etapa 6: pruebas de rendimiento con Locust (issue #7).
+# Reutilizable: el orquestador (#9) la llamará con "uses: ./.github/workflows/etapa-6-rendimiento.yml".
+# Mientras tanto se prueba sola en cada PR hacia qa que toque la app o esta etapa.
+#
+# Carga ligera (20 usuarios, 5 nuevos/s, 1 minuto) contra la API levantada con entorno-ci.
+# Los umbrales p95 por petición y la tasa de error máxima están en tests/performance/umbrales.json,
+# con su justificación (los listados tienen un delay INTENCIONAL de 5 s en la API).
+# El job falla si se supera cualquier umbral.
+
+name: "Etapa 6 - Rendimiento (Locust)"
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches: [qa]
+    paths:
+      - BACKEND/**
+      - docker-compose*.yml
+      - tests/performance/**
+      - .github/actions/entorno-ci/**
+      - .github/workflows/etapa-6-rendimiento.yml
+
+permissions:
+  contents: read
+
+jobs:
+  rendimiento:
+    name: 6. Rendimiento (Locust)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      USUARIOS: 20
+      TASA_ARRANQUE: 5
+      DURACION: 1m
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v5
+
+      - name: Levantar entorno (BD + API + frontend)
+        id: entorno
+        uses: ./.github/actions/entorno-ci
+
+      - name: Instalar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tests/performance/requirements.txt
+
+      - name: Instalar Locust
+        run: pip install -r tests/performance/requirements.txt
+
+      # --exit-code-on-error 0: la decisión la toma check_umbrales.py (tolera hasta el % de error definido).
+      - name: Ejecutar carga
+        working-directory: tests/performance
+        run: >
+          locust -f locustfile.py --headless
+          -u "$USUARIOS" -r "$TASA_ARRANQUE" -t "$DURACION"
+          --host "${{ steps.entorno.outputs.api_url }}"
+          --csv resultados --html reporte.html
+          --only-summary --exit-code-on-error 0
+
+      - name: Verificar umbrales
+        working-directory: tests/performance
+        run: python check_umbrales.py resultados_stats.csv umbrales.json "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar reporte Locust
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: reporte-locust
+          retention-days: 14
+          if-no-files-found: ignore
+          path: |
+            tests/performance/reporte.html
+            tests/performance/resultados_*.csv
+
+      - name: Logs del entorno si falla
+        if: ${{ failure() }}
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color --tail 200
