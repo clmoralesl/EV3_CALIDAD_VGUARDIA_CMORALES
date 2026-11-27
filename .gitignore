@@ -20,3 +20,7 @@ snyk.sarif
 # Reportes de pruebas de API (Vitest)
 BACKEND/coverage/
 BACKEND/reports/
+
+# Resultados de Locust (pruebas de rendimiento)
+tests/performance/reporte.html
+tests/performance/resultados_*.csv

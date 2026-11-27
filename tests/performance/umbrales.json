@@ -1,0 +1,30 @@
+{
+  "_descripcion": "Umbrales de la etapa 6 (issue #7). Carga ligera: 20 usuarios, 5 nuevos/s, 1 minuto. Medición local de referencia (2026-11-26): listados 5000 ms, consultas simples p95 14-16 ms, login p95 230 ms, creación de paciente p95 170 ms, 0 % de error.",
+  "tasa_error_max_pct": 1,
+  "peticiones": {
+    "GET /pacientes": {
+      "p95_max_ms": 6000,
+      "justificacion": "La API tiene delayMiddleware(5000) INTENCIONAL en este listado: 5 s de delay + 1 s de margen. No se corrige el delay (es parte del caso de estudio)."
+    },
+    "GET /examenes": {
+      "p95_max_ms": 6000,
+      "justificacion": "Mismo delay intencional de 5 s que GET /pacientes, + 1 s de margen."
+    },
+    "GET /pacientes/:id": {
+      "p95_max_ms": 300,
+      "justificacion": "Consulta CRUD simple: mismo objetivo de 300 ms que los casos CP-31/33/34 de SquashTM."
+    },
+    "GET /tipo-examen": {
+      "p95_max_ms": 300,
+      "justificacion": "Consulta CRUD simple: objetivo de 300 ms (CP-31/33/34)."
+    },
+    "POST /pacientes [CP-31]": {
+      "p95_max_ms": 300,
+      "justificacion": "CP-31 de SquashTM: creación de paciente < 300 ms."
+    },
+    "POST /autenticacion/login": {
+      "p95_max_ms": 1000,
+      "justificacion": "Login: una vez por usuario al iniciar (pocas muestras, incluye el arranque en frío); 1 s como límite de usabilidad."
+    }
+  }
+}
