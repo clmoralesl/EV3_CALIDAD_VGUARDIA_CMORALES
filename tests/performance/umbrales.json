@@ -15,8 +15,8 @@
       "justificacion": "Consulta CRUD simple: mismo objetivo de 300 ms que los casos CP-31/33/34 de SquashTM."
     },
     "GET /tipo-examen": {
-      "p95_max_ms": 300,
-      "justificacion": "Consulta CRUD simple: objetivo de 300 ms (CP-31/33/34)."
+      "p95_max_ms": 1,
+      "justificacion": "FALLO CONTROLADO (#13): umbral irreal de 1 ms. NO MERGEAR."
     },
     "POST /pacientes [CP-31]": {
       "p95_max_ms": 300,
