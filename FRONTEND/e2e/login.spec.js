@@ -4,7 +4,8 @@ import { iniciarSesion } from './helpers'
 test.describe('Inicio de sesión', () => {
   test('E2E-01 login válido lleva al inicio', async ({ page }) => {
     await iniciarSesion(page, 'admin')
-    await expect(page.getByRole('link', { name: 'Ir a Usuarios INEXISTENTE' }) // FALLO CONTROLADO (#13): selector roto).toBeVisible()
+    // FALLO CONTROLADO (#13): selector roto a propósito, NO MERGEAR
+    await expect(page.getByRole('link', { name: 'Ir a Usuarios INEXISTENTE' })).toBeVisible()
   })
 
   test('E2E-02 login con contraseña incorrecta muestra error y no entra', async ({ page }) => {
