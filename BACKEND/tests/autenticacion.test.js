@@ -19,14 +19,14 @@ describe("Autenticación (RF-1.1 / NFR-SEG-9)", () => {
     const res = await api()
       .post("/autenticacion/login")
       .send({ nombre_usuario: USUARIOS.paciente.nombre_usuario, password: "ClaveErronea2026!" });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200); // FALLO CONTROLADO (#13): expectativa incorrecta
     expect(res.body.error).toBe("Credenciales inválidas");
     expect(res.body.token).toBeUndefined();
   });
 
   it("CP-02 login con usuario inexistente responde 401 sin revelar si el usuario existe", async () => {
     const res = await api().post("/autenticacion/login").send({ nombre_usuario: "no_existe_api", password: "ClaveErronea2026!" });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200); // FALLO CONTROLADO (#13): expectativa incorrecta
     expect(res.body.error).toBe("Credenciales inválidas");
   });
 
@@ -53,19 +53,19 @@ describe("Acceso sin autenticación o con token inválido (CP-05 / CP-29)", () =
     // Se envía un cuerpo válido: la API valida el cuerpo antes de revisar el token.
     const peticion = api()[metodo.toLowerCase()](ruta);
     const res = metodo === "POST" ? await peticion.send(pacienteNuevo()) : await peticion;
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200); // FALLO CONTROLADO (#13): expectativa incorrecta
   });
 
   it("CP-29 un token con la firma manipulada se rechaza con 401", async () => {
     const [cabecera, carga] = tokenPaciente.split(".");
     const manipulado = `${cabecera}.${carga}.firmaFalsa`;
     const res = await api().get("/examenes/1").set(bearer(manipulado));
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200); // FALLO CONTROLADO (#13): expectativa incorrecta
   });
 
   it("CP-29 un token firmado con otra clave se rechaza con 401", async () => {
     const falso = jwt.sign({ usuarioId: 1, rolNombre: "admin" }, "otra-clave-no-valida");
     const res = await api().get("/examenes/1").set(bearer(falso));
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200); // FALLO CONTROLADO (#13): expectativa incorrecta
   });
 });
